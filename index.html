@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meta Ads Account Structure Visualizer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/0.5.0-beta4/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #1877F2;
+            --background-color: #E4E6EB;
+            --card-background: #FFFFFF;
+            --text-color: #050505;
+            --border-color: #CED0D4;
+            --campaign-color: #4267B2;
+            --adset-color: #42B72A;
+            --ad-color: #1877F2;
+            --delete-color: #ffcccb;
+            --add-color: #ccffcc;
+            --duplicate-color: #e6f2ff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.5;
+            display: flex;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 200px;
+            background-color: var(--card-background);
+            padding: 20px;
+            height: 100vh;
+            overflow-y: auto;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .sidebar button {
+            margin-bottom: 10px;
+            width: 100%;
+        }
+
+        .main-content {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background-color: #D0D3D9;
+        }
+
+        .structure-container {
+            width: 100%;
+        }
+
+        .campaign, .adset, .ad {
+            background-color: var(--card-background);
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 10px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .campaign { border-left: 8px solid var(--campaign-color); }
+        .adset { border-left: 8px solid var(--adset-color); margin-left: 20px; }
+        .ad { border-left: 8px solid var(--ad-color); margin-left: 40px; }
+
+        .element-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: nowrap;
+            gap: 10px;
+        }
+
+        .element-title {
+            font-weight: 500;
+            font-size: 14px;
+            width: 25%;
+            min-width: 100px;
+        }
+
+        .budget-input {
+            width: 15%;
+            min-width: 80px;
+        }
+
+        input, textarea, select {
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 6px;
+            font-size: 12px;
+            transition: border-color 0.3s ease;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        textarea {
+            width: 100%;
+            resize: vertical;
+            min-height: 40px;
+            margin-top: 5px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 5px;
+        }
+
+        .btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--background-color);
+            border: none;
+            cursor: pointer;
+            font-size: 12px;
+            padding: 6px 8px;
+            border-radius: 4px;
+            transition: background-color 0.3s ease;
+            white-space: nowrap;
+        }
+
+        .btn:hover {
+            opacity: 0.8;
+        }
+
+        .btn i {
+            margin-right: 3px;
+        }
+
+        .btn-add { background-color: var(--add-color); }
+        .btn-delete { background-color: var(--delete-color); }
+        .btn-duplicate { background-color: var(--duplicate-color); }
+
+        .drag-handle {
+            cursor: move;
+            padding: 3px;
+            margin-right: 5px;
+            color: var(--text-color);
+        }
+
+        .dragging {
+            opacity: 0.5;
+        }
+
+        .collapsed > .element-header ~ * {
+            display: none;
+        }
+
+        .budget-toggle {
+            margin-right: 10px;
+        }
+
+        .sidebar h3 {
+            margin-top: 20px;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+
+        .modal-content {
+            background-color: var(--card-background);
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+            width: 80%;
+            max-width: 600px;
+            border-radius: 8px;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        #accountTree {
+            margin-top: 20px;
+        }
+
+        .tree-item {
+            padding: 3px 0;
+            font-size: 14px;
+        }
+
+        .tree-item i {
+            margin-right: 5px;
+        }
+
+        .tree-children {
+            margin-left: 20px;
+            border-left: 1px solid var(--border-color);
+            padding-left: 10px;
+        }
+
+        .budget-type-select {
+            margin-right: 10px;
+        }
+
+        .date-inputs {
+            display: none;
+            margin-top: 5px;
+        }
+
+        .date-inputs input {
+            margin-right: 5px;
+        }
+
+        @media (max-width: 1200px) {
+            .btn span {
+                display: none;
+            }
+            .element-title {
+                width: 100%;
+            }
+            .budget-input {
+                width: 30%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h2 style="margin-bottom: 20px;">Meta Ads Visualizer</h2>
+        <h3>Editing</h3>
+        <button onclick="addElement('campaign')" class="btn btn-add"><i class="fas fa-plus"></i> Add Campaign</button>
+        <h3>View</h3>
+        <button onclick="openAccountTree()" class="btn"><i class="fas fa-sitemap"></i> Account Tree</button>
+        <button onclick="openBudgetOverview()" class="btn"><i class="fas fa-chart-pie"></i> Budget Overview</button>
+    </div>
+    <div class="main-content">
+        <div class="structure-container" id="structure-container">
+            <!-- Elements will be added here -->
+        </div>
+    </div>
+
+    <div id="accountTreeModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('accountTreeModal')">&times;</span>
+            <h2>Account Tree</h2>
+            <button onclick="exportToPDF()" class="btn"><i class="fas fa-file-pdf"></i> Export to PDF</button>
+            <div id="accountTree"></div>
+        </div>
+    </div>
+
+    <div id="budgetOverviewModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('budgetOverviewModal')">&times;</span>
+            <h2>Budget Overview</h2>
+            <div id="budgetOverview"></div>
+        </div>
+    </div>
+
+    <script>
+        function addElement(type, parentId = null) {
+            const container = parentId ? document.getElementById(parentId) : document.getElementById('structure-container');
+            const element = document.createElement('div');
+            element.className = type;
+            element.id = 'element-' + Date.now();
+            element.innerHTML = `
+                <div class="element-header">
+                    <i class="fas fa-grip-vertical drag-handle"></i>
+                    <input type="text" class="element-title" placeholder="${type.charAt(0).toUpperCase() + type.slice(1)} Name" oninput="updateAccountTree()">
+                    ${type === 'campaign' ? `
+                        <label class="budget-toggle">
+                            <input type="checkbox" onchange="toggleBudgetLevel(this)"> Campaign Budget
+                        </label>
+                    ` : ''}
+                    ${type !== 'ad' ? `
+                        <select class="budget-type-select" onchange="toggleDateInputs(this)">
+                            <option value="daily">Daily Budget</option>
+                            <option value="lifetime">Lifetime Budget</option>
+                        </select>
+                        <input type="number" class="budget-input" placeholder="Budget" ${type === 'campaign' ? 'disabled' : ''}>
+                        <div class="date-inputs" style="display:none;gap:5px;">
+                            <input type="date" class="start-date" placeholder="Start Date">
+                            <input type="date" class="end-date" placeholder="End Date">
+                        </div>
+                    ` : ''}
+                    <div class="btn-group">
+                        ${type !== 'ad' ? `<button onclick="addElement('${type === 'campaign' ? 'adset' : 'ad'}', '${element.id}')" class="btn btn-add"><i class="fas fa-plus"></i><span> Add ${type === 'campaign' ? 'Ad Set' : 'Ad'}</span></button>` : ''}
+                        <button onclick="toggleElementCollapse(this)" class="btn"><i class="fas fa-chevron-down"></i></button>
+                        <button onclick="duplicateElement('${element.id}')" class="btn btn-duplicate"><i class="fas fa-copy"></i><span> Duplicate</span></button>
+                        <button onclick="deleteElement('${element.id}')" class="btn btn-delete"><i class="fas fa-trash"></i><span> Delete</span></button>
+                    </div>
+                </div>
+                <textarea placeholder="Add notes here"></textarea>
+            `;
+            
+            container.appendChild(element);
+
+            setupDragAndDrop(element);
+            updateAccountTree();
+            updateBudgetOverview();
+        }
+
+        function setupDragAndDrop(element) {
+            element.draggable = true;
+            element.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('text/plain', e.target.id);
+                setTimeout(() => e.target.classList.add('dragging'), 0);
+            });
+
+            element.addEventListener('dragend', (e) => {
+                e.target.classList.remove('dragging');
+                updateAccountTree();
+                updateBudgetOverview();
+            });
+
+            element.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                const draggable = document.querySelector('.dragging');
+                if (canDrop(draggable, element)) {
+                    const afterElement = getDragAfterElement(element, e.clientY);
+                    if (afterElement == null) {
+                        element.appendChild(draggable);
+                    } else {
+                        element.insertBefore(draggable, afterElement);
+                    }
+                }
+            });
+        }
+
+        function canDrop(draggable, target) {
+            if (draggable.classList.contains('campaign')) {
+                return target.id === 'structure-container';
+            } else if (draggable.classList.contains('adset')) {
+                return target.classList.contains('campaign');
+            } else if (draggable.classList.contains('ad')) {
+                return target.classList.contains('adset');
+            }
+            return false;
+        }
+
+        function getDragAfterElement(container, y) {
+            const draggableElements = [...container.querySelectorAll('.campaign:not(.dragging), .adset:not(.dragging), .ad:not(.dragging)')];
+            
+            return draggableElements.reduce((closest, child) => {
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height / 2;
+                if (offset < 0 && offset > closest.offset) {
+                    return { offset: offset, element: child };
+                } else {
+                    return closest;
+                }
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
+        }
+
+        function updateAccountTree() {
+            const treeContainer = document.getElementById('accountTree');
+            treeContainer.innerHTML = '';
+            const campaigns = document.querySelectorAll('.campaign');
+            campaigns.forEach(campaign => {
+                const campaignItem = createTreeItem(campaign, true);
+                treeContainer.appendChild(campaignItem);
+            });
+        }
+
+        function createTreeItem(element, forceExpand = false) {
+            const item = document.createElement('div');
+            item.className = 'tree-item';
+            const title = element.querySelector('.element-title').value || element.className;
+            const icon = getIconForElement(element.className);
+            item.innerHTML = `
+                ${icon}
+                <span>${title}</span>
+            `;
+            
+            const children = element.querySelectorAll(`:scope > .${element.className === 'campaign' ? 'adset' : 'ad'}`);
+            if (children.length > 0) {
+                const childrenContainer = document.createElement('div');
+                childrenContainer.className = 'tree-children';
+                children.forEach(child => {
+                    childrenContainer.appendChild(createTreeItem(child, forceExpand));
+                });
+                item.appendChild(childrenContainer);
+            }
+            
+            return item;
+        }
+
+        function getIconForElement(type) {
+            switch(type) {
+                case 'campaign':
+                    return '<i class="fas fa-bullhorn" style="color: var(--campaign-color);"></i>';
+                case 'adset':
+                    return '<i class="fas fa-layer-group" style="color: var(--adset-color);"></i>';
+                case 'ad':
+                    return '<i class="fas fa-ad" style="color: var(--ad-color);"></i>';
+                default:
+                    return '';
+            }
+        }
+
+        function toggleElementCollapse(button) {
+            const container = button.closest('.campaign, .adset, .ad');
+            container.classList.toggle('collapsed');
+            button.innerHTML = container.classList.contains('collapsed') ? '<i class="fas fa-chevron-right"></i>' : '<i class="fas fa-chevron-down"></i>';
+            updateAccountTree();
+        }
+
+        function deleteElement(id) {
+            const element = document.getElementById(id);
+            if (element) {
+                element.remove();
+                updateAccountTree();
+                updateBudgetOverview();
+            }
+        }
+
+        function duplicateElement(id) {
+            const original = document.getElementById(id);
+            if (original) {
+                const clone = original.cloneNode(true);
+                clone.id = 'element-' + Date.now();
+                
+                // Reset budget type and hide date inputs for duplicated elements
+                const budgetTypeSelect = clone.querySelector('.budget-type-select');
+                if (budgetTypeSelect) {
+                    budgetTypeSelect.value = 'daily';
+                    const dateInputs = clone.querySelector('.date-inputs');
+                    if (dateInputs) {
+                        dateInputs.style.display = 'none';
+                    }
+                }
+
+                // Clear input values
+                clone.querySelectorAll('input[type="text"], input[type="number"], textarea').forEach(input => {
+                    input.value = '';
+                });
+
+                // Update the onclick attributes for the new element
+                clone.querySelectorAll('button').forEach(button => {
+                    if (button.getAttribute('onclick')) {
+                        button.setAttribute('onclick', button.getAttribute('onclick').replace(id, clone.id));
+                    }
+                });
+
+                // Insert the cloned element after the original
+                original.parentNode.insertBefore(clone, original.nextSibling);
+                
+                setupDragAndDrop(clone);
+                updateAccountTree();
+                updateBudgetOverview();
+            }
+        }
+
+        function toggleBudgetLevel(checkbox) {
+            const campaign = checkbox.closest('.campaign');
+            const campaignBudget = campaign.querySelector('.budget-input');
+            const campaignBudgetType = campaign.querySelector('.budget-type-select');
+            const campaignDateInputs = campaign.querySelector('.date-inputs');
+            const adsetBudgets = campaign.querySelectorAll('.adset .budget-input');
+            const adsetBudgetSelects = campaign.querySelectorAll('.adset .budget-type-select');
+            const adsetDateInputs = campaign.querySelectorAll('.adset .date-inputs');
+            
+            campaignBudget.disabled = !checkbox.checked;
+            campaignBudgetType.disabled = !checkbox.checked;
+            campaignDateInputs.style.display = checkbox.checked && campaignBudgetType.value === 'lifetime' ? 'flex' : 'none';
+            
+            adsetBudgets.forEach(budget => budget.disabled = checkbox.checked);
+            adsetBudgetSelects.forEach(select => select.disabled = checkbox.checked);
+            adsetDateInputs.forEach(dateInput => dateInput.style.display = 'none');
+
+            updateBudgetOverview();
+        }
+
+        function toggleDateInputs(select) {
+            const dateInputs = select.nextElementSibling.nextElementSibling;
+            dateInputs.style.display = select.value === 'lifetime' ? 'flex' : 'none';
+            updateBudgetOverview();
+        }
+
+        function openAccountTree() {
+            updateAccountTree();
+            document.getElementById('accountTreeModal').style.display = 'block';
+        }
+
+        function openBudgetOverview() {
+            updateBudgetOverview();
+            document.getElementById('budgetOverviewModal').style.display = 'block';
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        function updateBudgetOverview() {
+            const overviewContainer = document.getElementById('budgetOverview');
+            overviewContainer.innerHTML = '';
+
+            let totalDailyBudget = 0;
+            let totalLifetimeBudget = 0;
+
+            const campaigns = document.querySelectorAll('.campaign');
+            campaigns.forEach(campaign => {
+                const campaignBudgetInput = campaign.querySelector('.budget-input');
+                const campaignBudgetType = campaign.querySelector('.budget-type-select').value;
+                const campaignBudget = parseFloat(campaignBudgetInput.value) || 0;
+
+                if (!campaignBudgetInput.disabled) {
+                    // Campaign-level budget
+                    if (campaignBudgetType === 'daily') {
+                        totalDailyBudget += campaignBudget;
+                    } else {
+                        totalLifetimeBudget += campaignBudget;
+                    }
+                } else {
+                    // Ad set-level budgets
+                    const adsets = campaign.querySelectorAll('.adset');
+                    adsets.forEach(adset => {
+                        const adsetBudgetInput = adset.querySelector('.budget-input');
+                        const adsetBudgetType = adset.querySelector('.budget-type-select').value;
+                        const adsetBudget = parseFloat(adsetBudgetInput.value) || 0;
+
+                        if (adsetBudgetType === 'daily') {
+                            totalDailyBudget += adsetBudget;
+                        } else {
+                            totalLifetimeBudget += adsetBudget;
+                        }
+                    });
+                }
+            });
+
+            overviewContainer.innerHTML = `
+                <p>Total Daily Budget: $${totalDailyBudget.toFixed(2)}</p>
+                <p>Total Lifetime Budget: $${totalLifetimeBudget.toFixed(2)}</p>
+            `;
+        }
+
+        function exportToPDF() {
+            const accountTree = document.getElementById('accountTree');
+            html2canvas(accountTree).then(canvas => {
+                const imgData = canvas.toDataURL('image/png');
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF({
+                    orientation: 'portrait',
+                    unit: 'mm',
+                    format: 'a4'
+                });
+                
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = pdf.internal.pageSize.getHeight();
+                const imgWidth = canvas.width;
+                const imgHeight = canvas.height;
+                const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+                const imgX = (pdfWidth - imgWidth * ratio) / 2;
+                const imgY = 30;
+
+                pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
+                pdf.save('account_tree.pdf');
+            });
+        }
+
+        // Close modal when clicking outside of it
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.style.display = 'none';
+            }
+        }
+
+        // Initialize with a campaign
+        addElement('campaign');
+    </script>
+</body>
+</html>
